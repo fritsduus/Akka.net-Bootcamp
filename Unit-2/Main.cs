@@ -25,10 +25,13 @@ namespace ChartApp
         {
             _chartActor = Program.ChartActors.ActorOf(Props.Create(() => new ChartingActor(sysChart)), "charting");
             var series = ChartDataHelper.RandomSeries("FakeSeries" + _seriesCounter.GetAndIncrement());
+            //var series2 = ChartDataHelper.RandomSeries("FakeSeries" + _seriesCounter.GetAndIncrement(), SeriesChartType.Area);
             _chartActor.Tell(new ChartingActor.InitializeChart(new Dictionary<string, Series>()
             {
-                {series.Name, series}
+                {series.Name, series},
+                //{series2.Name, series2}
             }));
+
         }
 
         private void Main_FormClosing(object sender, FormClosingEventArgs e)
