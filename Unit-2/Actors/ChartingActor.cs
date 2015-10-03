@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using Akka.Actor;
 
@@ -45,24 +46,53 @@ namespace ChartApp.Actors
 
             public string SeriesName { get; private set; }
         }
+
+        /// <summary>
+        /// Toggles the pausing between charts
+        /// </summary>
+        public class TogglePause { }
         #endregion
 
         private readonly Chart _chart;
         private Dictionary<string, Series> _seriesIndex;
+        private readonly Button _pauseButton;
 
-        public ChartingActor(Chart chart) : this(chart, new Dictionary<string, Series>())
+        public ChartingActor(Chart chart, Button pauseButton) 
+            : this(chart, new Dictionary<string, Series>(), pauseButton)
         {
         }
 
-        public ChartingActor(Chart chart, Dictionary<string, Series> seriesIndex)
+        public ChartingActor(Chart chart, Dictionary<string, Series> seriesIndex,
+            Button pauseButton)
         {
             _chart = chart;
             _seriesIndex = seriesIndex;
+            _pauseButton = pauseButton;
+            Charting();
+        }
 
+        private void Charting()
+        {
             Receive<InitializeChart>(ic => HandleInitialize(ic));
             Receive<AddSeries>(addSeries => HandleAddSeries(addSeries));
             Receive<RemoveSeries>(removeSeries => HandleRemoveSeries(removeSeries));
             Receive<Metric>(metric => HandleMetrics(metric));
+
+            Receive<TogglePause>(pause =>
+            {
+                SetPauseButtonText(true);
+                BecomeStacked(Paused);
+            });
+        }
+
+        private void Paused()
+        {
+            Receive<Metric>(metric => HandleMetricsPaused(metric));
+            Receive<TogglePause>(pause =>
+            {
+                SetPauseButtonText(false);
+                UnbecomeStacked();
+            });
         }
 
         #region Individual Message Type Handlers
@@ -138,6 +168,18 @@ namespace ChartApp.Actors
                 _seriesIndex.ContainsKey(series);
         }
 
+        private void HandleMetricsPaused(Metric metric)
+        {
+            if (IsValidSeries(metric.Series))
+            {
+                var series = _seriesIndex[metric.Series];
+                series.Points.AddXY(xPosCounter++, 0.0d);
+                while (series.Points.Count > MaxPoints)
+                    series.Points.RemoveAt(0);
+                SetChartBoundaries();
+            }
+        }
+
         #endregion
 
         private void SetChartBoundaries()
@@ -159,6 +201,11 @@ namespace ChartApp.Actors
                 area.AxisY.Minimum = minAxisY;
                 area.AxisY.Maximum = maxAxisY;
             }
+        }
+
+        private void SetPauseButtonText(bool paused)
+        {
+            _pauseButton.Text = string.Format("{0}", !paused ? "PAUSE ||" : "RESUME ->");
         }
     }
 }
